@@ -1,0 +1,17 @@
+(defun conv1 (exp)
+  (if (consp exp)
+      (format nil "Cons<~A, ~A>" (conv1 (car exp)) (conv1 (cdr exp)))
+      (format nil "~A" exp)))
+
+(defun proper-list-p (obj)
+  (cond ((null obj) t)
+        ((consp obj) (proper-list-p (cdr obj)))
+        (t nil)))
+
+(defun conv2 (exp)
+  (cond ((proper-list-p exp)
+         (format nil "List<~{~A~^, ~}>" (mapcar #'conv2 exp)))
+        ((consp exp)
+         (format nil "Cons<~A, ~A>" (conv2 (car exp)) (conv2 (cdr exp))))
+        ((numberp exp) (format nil "Int<~A>" exp))
+        (t (format nil "~A" exp))))
