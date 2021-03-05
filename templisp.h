@@ -133,6 +133,11 @@ struct ConsRef {
   static std::string toString() { return "<ref " + Id::toString() + ">"; }
 };
 
+template<typename T1>
+struct isConsRef : std::false_type {};
+template<typename Id>
+struct isConsRef<ConsRef<Id>> : std::true_type {};
+
 template<typename Ref, typename Mem>
 struct MCarImpl {
   using value = typename Assoc<typename Ref::id, MemA<Mem>>::value::cdr::car;
@@ -531,4 +536,72 @@ private:
   using s12 = AddToEnv<MOD, Subr<MOD>, env, s11::memory>;
 public:
   using memory = s12::memory;
+};
+
+struct PrettyPrinter {
+private:
+  template<
+    typename T1, typename T2, typename Mem,
+    typename std::enable_if_t<std::is_same<T2, NIL>::value>* = nullptr>
+  static std::string printCons(const std::string& prefix=kLPar) {
+    return prefix + printImpl<T1, Mem>() + kRPar;
+  }
+  template<
+    typename T1, typename T2, typename Mem,
+    typename std::enable_if_t<isCons<T2>::value>* = nullptr>
+  static std::string printCons(const std::string& prefix=kLPar) {
+    using T3 = typename T2::car;
+    using T4 = typename T2::cdr;
+    return
+      prefix + printImpl<T1, Mem>() + printCons<T3, T4, Mem>(" ");
+  }
+  template<
+    typename T1, typename T2, typename Mem,
+    typename std::enable_if_t<isConsRef<T2>::value>* = nullptr>
+  static std::string printCons(const std::string& prefix=kLPar) {
+    return
+      prefix + printImpl<T1, Mem>() + printConsRef<T2, Mem>(" ");
+  }
+  template<
+    typename T1, typename T2, typename Mem,
+    typename std::enable_if_t<
+      !std::is_same<T2, NIL>::value && !isCons<T2>::value &&
+      !isConsRef<T2>::value>* = nullptr>
+  static std::string printCons(const std::string& prefix=kLPar) {
+    return
+      prefix + printImpl<T1, Mem>() + " . " + printImpl<T2, Mem>() + kRPar;
+  }
+
+  template<typename Ref, typename Mem>
+  static std::string printConsRef(const std::string& prefix=kLPar) {
+    using cons = typename Assoc<typename Ref::id, MemA<Mem>>::value::cdr;
+    return printCons<typename cons::car, typename cons::cdr, Mem>(prefix);
+  }
+
+  template<
+    typename Val, typename Mem,
+    typename std::enable_if_t<isCons<Val>::value>* = nullptr>
+  static std::string printImpl() {
+    return printCons<typename Val::car, typename Val::cdr, Mem>();
+  }
+  template<
+    typename Val, typename Mem,
+    typename std::enable_if_t<isConsRef<Val>::value>* = nullptr>
+  static std::string printImpl() {
+    return printConsRef<Val, Mem>();
+  }
+  template<
+    typename Val, typename Mem,
+    typename std::enable_if_t<
+      !isCons<Val>::value && !isConsRef<Val>::value>* = nullptr>
+  static std::string printImpl() {
+    return Val::toString();
+  }
+
+public:
+  template<typename EvalResult>
+  static std::string print() {
+    return printImpl<
+      typename EvalResult::value, typename EvalResult::memory>();
+  }
 };
