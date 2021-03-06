@@ -14,4 +14,8 @@
         ((consp exp)
          (format nil "Cons<~A, ~A>" (conv2 (car exp)) (conv2 (cdr exp))))
         ((numberp exp) (format nil "Int<~A>" exp))
+        ((eq exp '+) (format nil "ADD"))
+        ((eq exp '*) (format nil "MUL"))
+        ((eq exp '-) (format nil "SUB"))
+        ((eq exp '/) (format nil "DIV"))
         (t (format nil "~A" exp))))

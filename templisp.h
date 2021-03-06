@@ -18,6 +18,8 @@ DEFINE_SYMBOL(T);
 DEFINE_SYMBOL(QUOTE);
 DEFINE_SYMBOL(IF);
 DEFINE_SYMBOL(LAMBDA);
+DEFINE_SYMBOL(SETQ);
+DEFINE_SYMBOL(DEFUN);
 DEFINE_SYMBOL(CAR);
 DEFINE_SYMBOL(CDR);
 DEFINE_SYMBOL(CONS);
@@ -514,6 +516,7 @@ struct EvCom<LAMBDA, Arg, Env, Mem> {
   using value = Expr<MCar<Arg, Mem>, MCdr<Arg, Mem>, Env>;
   using memory = Mem;
 };
+// SETQ and DEFUN are defined below InitMemory.
 
 struct InitMemory {
 private:
@@ -536,6 +539,45 @@ private:
   using s12 = AddToEnv<MOD, Subr<MOD>, env, s11::memory>;
 public:
   using memory = s12::memory;
+};
+
+template<typename Sym, typename Val, typename Bind, typename Mem>
+struct Setq {
+private:
+  using result = SetCdr<Bind, Val, Mem>;
+public:
+  using value = typename result::value;
+  using memory = typename result::memory;
+};
+template<typename Sym, typename Val, typename Mem>
+struct Setq<Sym, Val, NIL, Mem> {
+private:
+  using env = AddToEnv<Sym, Val, InitMemory::env, Mem>;
+public:
+  using value = Val;
+  using memory = Mem_t<env>;
+};
+
+template<typename Arg, typename Env, typename Mem>
+struct EvCom<SETQ, Arg, Env, Mem> {
+private:
+  using val = Eval<MCar<MCdr<Arg, Mem>, Mem>, Env, Mem>;
+  using sym = MCar<Arg, Mem_t<val>>;
+  using bind = typename FindVar<sym, Env, Mem_t<val>>::value;
+  using result = Setq<sym, typename val::value, bind, Mem_t<val>>;
+public:
+  using value = typename result::value;
+  using memory = Mem_t<result>;
+};
+
+template<typename Arg, typename Env, typename Mem>
+struct EvCom<DEFUN, Arg, Env, Mem> {
+private:
+  using expr = Expr<MCar<MCdr<Arg, Mem>, Mem>, MCdr<MCdr<Arg, Mem>, Mem>, Env>;
+  using env = AddToEnv<MCar<Arg, Mem>, expr, InitMemory::env, Mem>;
+public:
+  using value = MCar<Arg, Mem>;
+  using memory = Mem_t<env>;
 };
 
 struct PrettyPrinter {
