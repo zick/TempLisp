@@ -379,6 +379,22 @@ public:
   using memory = typename result::memory;
 };
 
+template<typename Body, typename Env, typename Mem, typename Ret=NIL>
+struct Progn {
+private:
+  using ret = Eval<MCar<Body, Mem>, Env, Mem>;
+  using result = Progn<MCdr<Body, Mem_t<ret>>, Env, Mem_t<ret>,
+                       typename ret::value>;
+public:
+  using value = typename result::value;
+  using memory = Mem_t<result>;
+};
+template<typename Env, typename Mem, typename Ret>
+struct Progn<NIL, Env, Mem, Ret> {
+  using value = Ret;
+  using memory = Mem;
+};
+
 template<typename Lst, typename Env, typename Mem>
 struct Evlis {
 private:
@@ -426,8 +442,7 @@ struct Apply2<Expr<Par, Body, EE>, Arg, Env, Mem> {
 private:
   using binds = Pairlis<Par, Arg, Mem>;
   using env = MCons<typename binds::value, EE, Mem_t<binds>>;
-  using result = Eval<MCar<Body, Mem_t<env>>,
-                      typename env::value, typename env::memory>;
+  using result = Progn<Body, typename env::value, typename env::memory>;
 public:
   using value = typename result::value;
   using memory = typename result::memory;
@@ -468,8 +483,7 @@ struct Apply<Cons<LAMBDA, Cons<Par, Body>>, Arg, Env, Mem> {
 private:
   using binds = Pairlis<Par, Arg, Mem>;
   using env = MCons<typename binds::value, Env, Mem_t<binds>>;
-  using result = Eval<MCar<Body, Mem_t<env>>,
-                      typename env::value, typename env::memory>;
+  using result = Progn<Body, typename env::value, typename env::memory>;
 public:
   using value = typename result::value;
   using memory = typename result::memory;
