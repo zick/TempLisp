@@ -667,68 +667,28 @@ public:
 
 struct PrettyPrinter {
 private:
-  template<
-    typename T1, typename T2, typename Mem,
-    typename std::enable_if_t<std::is_same<T2, NIL>::value>* = nullptr>
-  static constexpr auto printCons(const charray<2>& prefix=kLPar) {
-    return prefix + printImpl<T1, Mem>() + kRPar;
-  }
-  template<
-    typename T1, typename T2, typename Mem,
-    typename std::enable_if_t<isCons<T2>::value>* = nullptr>
-  static constexpr auto printCons(const charray<2>& prefix=kLPar) {
-    using T3 = typename T2::car;
-    using T4 = typename T2::cdr;
-    return
-      prefix + printImpl<T1, Mem>() + printCons<T3, T4, Mem>(kSpace);
-  }
-  template<
-    typename T1, typename T2, typename Mem,
-    typename std::enable_if_t<isConsRef<T2>::value>* = nullptr>
-  static constexpr auto printCons(const charray<2>& prefix=kLPar) {
-    return
-      prefix + printImpl<T1, Mem>() + printConsRef<T2, Mem>(kSpace);
-  }
-  template<
-    typename T1, typename T2, typename Mem,
-    typename std::enable_if_t<
-      !std::is_same<T2, NIL>::value && !isCons<T2>::value &&
-      !isConsRef<T2>::value>* = nullptr>
-  static constexpr auto printCons(const charray<2>& prefix=kLPar) {
-    return
-      prefix + printImpl<T1, Mem>() + kDot + printImpl<T2, Mem>() + kRPar;
-  }
-
-  template<typename Ref, typename Mem>
-  static constexpr auto printConsRef(const charray<2>& prefix=kLPar) {
-    using cons = typename Assoc<typename Ref::id, MemA<Mem>>::value::cdr;
-    return printCons<typename cons::car, typename cons::cdr, Mem>(prefix);
-  }
-
-  template<
-    typename Val, typename Mem,
-    typename std::enable_if_t<isCons<Val>::value>* = nullptr>
-  static constexpr auto printImpl() {
-    return printCons<typename Val::car, typename Val::cdr, Mem>();
-  }
-  template<
-    typename Val, typename Mem,
-    typename std::enable_if_t<isConsRef<Val>::value>* = nullptr>
-  static constexpr auto printImpl() {
-    return printConsRef<Val, Mem>();
-  }
-  template<
-    typename Val, typename Mem,
-    typename std::enable_if_t<
-      !isCons<Val>::value && !isConsRef<Val>::value>* = nullptr>
-  static constexpr auto printImpl() {
-    return Val::toString();
-  }
+  template<typename Val, typename Mem>
+  struct Convert {
+    using value = Val;
+  };
+  template<typename T1, typename T2, typename Mem>
+  struct Convert<Cons<T1, T2>, Mem> {
+    using value = Cons<typename Convert<T1, Mem>::value,
+                       typename Convert<T2, Mem>::value>;
+  };
+  template<typename Id, typename Mem>
+  struct Convert<ConsRef<Id>, Mem> {
+  private:
+    using cons = typename Assoc<Id, MemA<Mem>>::value::cdr;
+    using car = typename cons::car;
+    using cdr = typename cons::cdr;
+  public:
+    using value = Cons<typename Convert<car, Mem>::value,
+                       typename Convert<cdr, Mem>::value>;
+  };
 
 public:
   template<typename EvalResult>
-  static constexpr auto print() {
-    return printImpl<
-      typename EvalResult::value, typename EvalResult::memory>();
-  }
+  using Print = typename Convert<
+    typename EvalResult::value, typename EvalResult::memory>::value;
 };
