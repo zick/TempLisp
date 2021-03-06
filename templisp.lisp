@@ -8,6 +8,11 @@
         ((consp obj) (proper-list-p (cdr obj)))
         (t nil)))
 
+(defparameter
+    *keywords*
+  (list 'nil 't 'quote 'if 'lambda 'setq' defun 'car 'cdr 'cons 'atom 'eq 'add
+        'mul 'sub 'div 'mod 'x 'y 'hoge 'fuga 'piyo))
+(defparameter *symtab* nil)
 (defun conv2 (exp)
   (cond ((proper-list-p exp)
          (format nil "List<~{~A~^, ~}>" (mapcar #'conv2 exp)))
@@ -18,4 +23,12 @@
         ((eq exp '*) (format nil "MUL"))
         ((eq exp '-) (format nil "SUB"))
         ((eq exp '/) (format nil "DIV"))
-        (t (format nil "~A" exp))))
+        (t (pushnew exp *symtab*)
+           (format nil "~A" exp))))
+
+(defun conv3 (exp)
+  (let* ((*symtab* nil)
+         (tpl (conv2 exp)))
+    (loop for sym in (set-difference *symtab* *keywords*) do
+         (format t "DEFINE_SYMBOL(~A);~%" sym))
+    (format t "~A~%" tpl)))
