@@ -1,18 +1,86 @@
 #include <iostream>
 #include <string>
 
-const char* kLPar = "(";
-const char* kRPar = ")";
+constexpr size_t numDigits(int n) {
+  size_t size = 1;
+  if (n < 0) {
+    ++size;
+    n *= -1;
+  }
+  while (n >= 10) {
+    ++size;
+    n /= 10;
+  }
+  return size;
+}
 
-#define DEFINE_SYMBOL(sym)                         \
-  struct sym {                                     \
-    static std::string toString() { return #sym; } \
+template<size_t N>
+struct charray {
+  constexpr charray() {}
+  constexpr explicit charray(const char (&s)[N]) {
+    for (int i = 0; i < N; ++i) {
+      data[i] = s[i];
+    }
+  }
+  constexpr explicit charray(int n) {
+    int last = 0;
+    if (n < 0) {
+      n *= -1;
+      last = 1;
+    }
+    int i = N - 1;
+    data[i--] = '\0';
+    while (i >= last) {
+      data[i--] = (n % 10) + '0';
+      n /= 10;
+    }
+    if (last > 0) {
+      data[0] = '-';
+    }
+  }
+
+  static constexpr size_t size = N;
+  char data[N] = {'\0'};
+};
+template<size_t N, size_t M>
+constexpr charray<N + M - 1> operator+(const charray<N>& lhs,
+                                      const charray<M>& rhs) {
+  charray<N + M - 1> ret;
+  for (int i = 0; i < N - 1; ++i) {  // Skip '\0'
+    ret.data[i] = lhs.data[i];
+  }
+  for (int i = 0; i < M; ++i) {
+    ret.data[i + N - 1] = rhs.data[i];
+  }
+  return ret;
+}
+template<size_t N>
+std::ostream& operator<<(std::ostream& os, const charray<N>& c) {
+  os << c.data;
+  return os;
+}
+
+constexpr auto kLPar = charray<sizeof("(")>("(");
+constexpr auto kRPar = charray<sizeof(")")>(")");
+constexpr auto kLBra = charray<sizeof("[")>("[");
+constexpr auto kRBra = charray<sizeof("]")>("]");
+constexpr auto kLt = charray<sizeof("<")>("<");
+constexpr auto kGt = charray<sizeof(">")>(">");
+constexpr auto kSpace = charray<sizeof(" ")>(" ");
+constexpr auto kDot = charray<sizeof(" . ")>(" . ");
+constexpr auto kRef = charray<sizeof("ref")>("ref");
+constexpr auto kSubr = charray<sizeof("subr")>("subr");
+constexpr auto kExpr = charray<sizeof("expr")>("expr");
+
+#define DEFINE_SYMBOL(sym)                                              \
+  struct sym {                                                          \
+    static constexpr auto toString() { return charray<sizeof(#sym)>(#sym); } \
   }
 
 struct NIL {
   using car = NIL;
   using cdr = NIL;
-  static std::string toString() { return "NIL"; }
+  static constexpr auto toString() { return charray<sizeof("NIL")>("NIL"); }
 };
 DEFINE_SYMBOL(T);
 DEFINE_SYMBOL(QUOTE);
@@ -40,7 +108,7 @@ DEFINE_SYMBOL(PIYO);
 template<int i>
 struct Int {
   static constexpr int value = i;
-  static std::string toString() { return std::to_string(value); }
+  static constexpr auto toString() { return charray<numDigits(i) + 1>(i); }
 };
 
 template <typename T1, typename T2>
@@ -74,22 +142,22 @@ struct Cons {
   template<
     typename T3 = T2,
     typename std::enable_if_t<std::is_same<T3, NIL>::value>* = nullptr>
-  static std::string toString(const std::string& prefix=kLPar) {
+  static constexpr auto toString(const charray<2>& prefix=kLPar) {
     return prefix + T1::toString() + kRPar;
   }
   template<
     typename T3 = T2,
     typename std::enable_if_t<isCons<T3>::value>* = nullptr>
-  static std::string toString(const std::string& prefix=kLPar) {
-    return prefix + T1::toString() + T3::toString(" ");
+  static constexpr auto toString(const charray<2>& prefix=kLPar) {
+    return prefix + T1::toString() + T3::toString(kSpace);
   }
   template<
     typename T3 = T2,
     typename std::enable_if_t<
       !std::is_same<T3, NIL>::value &&
       !isCons<T3>::value>* = nullptr>
-  static std::string toString(const std::string& prefix=kLPar) {
-    return prefix + T1::toString() + " . " + T2::toString() + kRPar;
+  static constexpr auto toString(const charray<2>& prefix=kLPar) {
+    return prefix + T1::toString() + kDot + T2::toString() + kRPar;
   }
 };
 
@@ -119,9 +187,8 @@ template<typename NextId, typename Alist>
 struct Memory {
   using nextId = NextId;
   using alist = Alist;
-  static std::string toString() {
-    return "[next: " + NextId::toString() +
-      ", alist: " + Alist::toString() + "]";
+  static constexpr auto toString() {
+    return kLBra + NextId::toString() + kSpace + Alist::toString() + kRBra;
   }
 };
 template<typename Mem>
@@ -132,7 +199,9 @@ using Mem_t = typename T1::memory;
 template<typename Id>
 struct ConsRef {
   using id = Id;
-  static std::string toString() { return "<ref " + Id::toString() + ">"; }
+  static constexpr auto toString() {
+    return kLt + kRef + kSpace + Id::toString() + kGt;
+  }
 };
 
 template<typename T1>
@@ -296,7 +365,9 @@ struct Eq<T1, T1> {
 template<typename Sym>
 struct Subr {
   using name = Sym;
-  static std::string toString() { return "<subr " + Sym::toString() + ">"; }
+  static constexpr auto toString() {
+    return kLt + kSubr + kSpace + Sym::toString() + kGt;
+  }
 };
 template<typename Arg, typename Mem>
 struct SubrCar {
@@ -354,7 +425,7 @@ struct SubrMod {
 
 template<typename Arg, typename Body, typename Env>
 struct Expr {
-  static std::string toString() { return "<expr>"; }
+  static constexpr auto toString() { return kExpr; }
 };
 
 template<typename Fn, typename Arg, typename Env, typename Mem>
@@ -599,37 +670,37 @@ private:
   template<
     typename T1, typename T2, typename Mem,
     typename std::enable_if_t<std::is_same<T2, NIL>::value>* = nullptr>
-  static std::string printCons(const std::string& prefix=kLPar) {
+  static constexpr auto printCons(const charray<2>& prefix=kLPar) {
     return prefix + printImpl<T1, Mem>() + kRPar;
   }
   template<
     typename T1, typename T2, typename Mem,
     typename std::enable_if_t<isCons<T2>::value>* = nullptr>
-  static std::string printCons(const std::string& prefix=kLPar) {
+  static constexpr auto printCons(const charray<2>& prefix=kLPar) {
     using T3 = typename T2::car;
     using T4 = typename T2::cdr;
     return
-      prefix + printImpl<T1, Mem>() + printCons<T3, T4, Mem>(" ");
+      prefix + printImpl<T1, Mem>() + printCons<T3, T4, Mem>(kSpace);
   }
   template<
     typename T1, typename T2, typename Mem,
     typename std::enable_if_t<isConsRef<T2>::value>* = nullptr>
-  static std::string printCons(const std::string& prefix=kLPar) {
+  static constexpr auto printCons(const charray<2>& prefix=kLPar) {
     return
-      prefix + printImpl<T1, Mem>() + printConsRef<T2, Mem>(" ");
+      prefix + printImpl<T1, Mem>() + printConsRef<T2, Mem>(kSpace);
   }
   template<
     typename T1, typename T2, typename Mem,
     typename std::enable_if_t<
       !std::is_same<T2, NIL>::value && !isCons<T2>::value &&
       !isConsRef<T2>::value>* = nullptr>
-  static std::string printCons(const std::string& prefix=kLPar) {
+  static constexpr auto printCons(const charray<2>& prefix=kLPar) {
     return
-      prefix + printImpl<T1, Mem>() + " . " + printImpl<T2, Mem>() + kRPar;
+      prefix + printImpl<T1, Mem>() + kDot + printImpl<T2, Mem>() + kRPar;
   }
 
   template<typename Ref, typename Mem>
-  static std::string printConsRef(const std::string& prefix=kLPar) {
+  static constexpr auto printConsRef(const charray<2>& prefix=kLPar) {
     using cons = typename Assoc<typename Ref::id, MemA<Mem>>::value::cdr;
     return printCons<typename cons::car, typename cons::cdr, Mem>(prefix);
   }
@@ -637,26 +708,26 @@ private:
   template<
     typename Val, typename Mem,
     typename std::enable_if_t<isCons<Val>::value>* = nullptr>
-  static std::string printImpl() {
+  static constexpr auto printImpl() {
     return printCons<typename Val::car, typename Val::cdr, Mem>();
   }
   template<
     typename Val, typename Mem,
     typename std::enable_if_t<isConsRef<Val>::value>* = nullptr>
-  static std::string printImpl() {
+  static constexpr auto printImpl() {
     return printConsRef<Val, Mem>();
   }
   template<
     typename Val, typename Mem,
     typename std::enable_if_t<
       !isCons<Val>::value && !isConsRef<Val>::value>* = nullptr>
-  static std::string printImpl() {
+  static constexpr auto printImpl() {
     return Val::toString();
   }
 
 public:
   template<typename EvalResult>
-  static std::string print() {
+  static constexpr auto print() {
     return printImpl<
       typename EvalResult::value, typename EvalResult::memory>();
   }
