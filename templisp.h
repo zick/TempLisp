@@ -70,7 +70,7 @@ constexpr auto kSpace = charray<sizeof(" ")>(" ");
 constexpr auto kDot = charray<sizeof(" . ")>(" . ");
 constexpr auto kRef = charray<sizeof("ref")>("ref");
 constexpr auto kSubr = charray<sizeof("subr")>("subr");
-constexpr auto kExpr = charray<sizeof("expr")>("expr");
+constexpr auto kExpr = charray<sizeof("<expr>")>("<expr>");
 
 #define DEFINE_SYMBOL(sym)                                              \
   struct sym {                                                          \

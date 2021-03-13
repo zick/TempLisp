@@ -33,16 +33,30 @@
          (format t "  DEFINE_SYMBOL(~A);~%" sym))
     (format t "  using ret = Eval<~A, env, mem>;~%" tpl)))
 
+(defun conv4 (exps)
+  (let* ((*symtab* nil)
+         (tpls (loop for exp in exps collect (conv2 exp))))
+    (loop for sym in (set-difference *symtab* *keywords*) do
+         (format t "  DEFINE_SYMBOL(~A);~%" sym))
+    (loop for tpl in tpls and i = 0 then (1+ i) do
+         (format t "  using ret~A = Eval<~A, env, ~A::memory>;~%"
+                 i tpl (if (= i 0)
+                           "InitMemory"
+                           (format nil "ret~A" (1- i))))
+         (format
+          t
+          "  constexpr auto str~A = PrettyPrinter::Print<ret~A>::toString();~%"
+          i i)
+         (format t "  std::cout << str~A << std::endl;~%" i))))
 
-(let ((exp (read)))
+
+(let ((exps (loop for exp = (read t nil nil) then (read t nil nil)
+                 while exp while exp collect exp)))
   (format t "#include \"templisp.h\"
 int main() {
   using env = InitMemory::env;
-  using mem = InitMemory::memory;
 ")
-  (conv3 exp)
-  (format t "  constexpr auto str = PrettyPrinter::Print<ret>::toString();
-  std::cout << str << std::endl;
-  return 0;
+  (conv4 exps)
+  (format t "  return 0;
 }
 "))

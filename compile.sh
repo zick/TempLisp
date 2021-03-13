@@ -17,7 +17,6 @@ else
 fi
 if [ -z "$exp" ]; then
   cat <<EOF
-EOF
 Usage:
   ./compile.sh -e "(car '(a b c))" > car.cc
     or
