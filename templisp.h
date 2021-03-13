@@ -44,7 +44,7 @@ struct charray {
 };
 template<size_t N, size_t M>
 constexpr charray<N + M - 1> operator+(const charray<N>& lhs,
-                                      const charray<M>& rhs) {
+                                       const charray<M>& rhs) {
   charray<N + M - 1> ret;
   for (int i = 0; i < N - 1; ++i) {  // Skip '\0'
     ret.data[i] = lhs.data[i];
@@ -98,12 +98,6 @@ DEFINE_SYMBOL(MUL);
 DEFINE_SYMBOL(SUB);
 DEFINE_SYMBOL(DIV);
 DEFINE_SYMBOL(MOD);
-
-DEFINE_SYMBOL(X);
-DEFINE_SYMBOL(Y);
-DEFINE_SYMBOL(HOGE);
-DEFINE_SYMBOL(FUGA);
-DEFINE_SYMBOL(PIYO);
 
 template<int i>
 struct Int {

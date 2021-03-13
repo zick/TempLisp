@@ -11,7 +11,7 @@
 (defparameter
     *keywords*
   (list 'nil 't 'quote 'if 'lambda 'setq' defun 'car 'cdr 'cons 'atom 'eq 'add
-        'mul 'sub 'div 'mod 'x 'y 'hoge 'fuga 'piyo))
+        'mul 'sub 'div 'mod))
 (defparameter *symtab* nil)
 (defun conv2 (exp)
   (cond ((proper-list-p exp)
@@ -30,5 +30,19 @@
   (let* ((*symtab* nil)
          (tpl (conv2 exp)))
     (loop for sym in (set-difference *symtab* *keywords*) do
-         (format t "DEFINE_SYMBOL(~A);~%" sym))
-    (format t "~A~%" tpl)))
+         (format t "  DEFINE_SYMBOL(~A);~%" sym))
+    (format t "  using ret = Eval<~A, env, mem>;~%" tpl)))
+
+
+(let ((exp (read)))
+  (format t "#include \"templisp.h\"
+int main() {
+  using env = InitMemory::env;
+  using mem = InitMemory::memory;
+")
+  (conv3 exp)
+  (format t "  constexpr auto str = PrettyPrinter::Print<ret>::toString();
+  std::cout << str << std::endl;
+  return 0;
+}
+"))
